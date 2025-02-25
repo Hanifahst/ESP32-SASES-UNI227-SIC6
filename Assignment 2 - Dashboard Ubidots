@@ -1,0 +1,56 @@
+import network
+import time
+import urequests
+import dht
+import machine
+
+SSID = "SASES"
+PASSWORD = "sic6uni227"
+UBIDOTS_TOKEN = "BBUS-lavCtohtNr3Wz4xrjHYRr6okNEt6Cl"
+DEVICE_LABEL = "esp32_dht11"
+VARIABLE_TEMP = "temperature"
+VARIABLE_HUMID = "humidity"
+
+dht_pin = machine.Pin(4)  
+dht_sensor = dht.DHT11(dht_pin)
+
+def connect_wifi():
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    wlan.connect(SSID, PASSWORD)
+    while not wlan.isconnected():
+        print("Menghubungkan ke WiFi...")
+        time.sleep(1)
+    print("Terhubung ke WiFi:", wlan.ifconfig())
+
+def send_to_ubidots(temp, humid):
+    url = f"http://industrial.api.ubidots.com/api/v1.6/devices/{DEVICE_LABEL}"
+    headers = {
+        "X-Auth-Token": UBIDOTS_TOKEN,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        VARIABLE_TEMP: temp,
+        VARIABLE_HUMID: humid
+    }
+    
+    try:
+        response = urequests.post(url, json=payload, headers=headers)
+        print("Data terkirim ke Ubidots:", response.text)
+        response.close()
+    except Exception as e:
+        print("Gagal mengirim data:", e)
+
+connect_wifi()
+while True:
+    try:
+        dht_sensor.measure()
+        temp = dht_sensor.temperature()
+        humid = dht_sensor.humidity()
+        print(f"Temperature: {temp}°C, Humidity: {humid}%")
+        send_to_ubidots(temp, humid)
+    except Exception as e:
+        print("Error membaca sensor:", e)
+    
+    time.sleep(2)
+
